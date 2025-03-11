@@ -1,0 +1,54 @@
+{
+  "name": "stand-backend",
+  "description": "Express backend with Supabase integration",
+  "version": "1.0.0",
+  "type": "backend",
+  "language": "typescript",
+  "framework": "express",
+  "database": "supabase",
+  "scripts": {
+    "dev": "npm run dev",
+    "build": "npm run build",
+    "start": "npm start",
+    "test": "npm test"
+  },
+  "environmentVariables": {
+    "required": [
+      "PORT",
+      "NODE_ENV",
+      "SUPABASE_URL",
+      "SUPABASE_ANON_KEY",
+      "SUPABASE_SERVICE_ROLE_KEY"
+    ]
+  },
+  "databaseMigrations": {
+    "directory": "migrations",
+    "manualExecution": true,
+    "platform": "supabase"
+  },
+  "formatting": {
+    "typescript": {
+      "semi": true,
+      "trailingComma": "es5",
+      "singleQuote": true,
+      "printWidth": 100,
+      "tabWidth": 2,
+      "useTabs": false
+    }
+  },
+  "linting": {
+    "typescript": {
+      "extends": [
+        "eslint:recommended",
+        "plugin:@typescript-eslint/recommended",
+        "prettier"
+      ]
+    }
+  },
+  "mcpServers": {
+    "supabase": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-postgres", "postgresql://postgres.xrvehradedculvttkqwu:I4oVMykxOaYasvyD@aws-0-us-east-1.pooler.supabase.com:5432/postgres?sslmode=no-verify"]
+    }
+  }
+} 

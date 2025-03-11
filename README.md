@@ -2,6 +2,29 @@
 
 A backend service for assessing property risks using a configurable rules engine. The service allows underwriters to evaluate properties based on observations and provides a flexible system for applied science teams to manage risk assessment rules.
 
+Overview of selected stack
+- Using a simple express JS app because of speed and ease of development. Tooling is extensive and well supported. 
+- For the persistent storage I am using Supabase because it is free and has a decent schema viewer along with ease to modify tables on the fly. In a true app I would have more permanent storage solutions or have the schema harder to modify without justification. 
+
+Architecture Overview
+Highlight how the code is structured and any design patterns used.
+- simple route and service based architecture
+- CRUD app style with asynchronous code calling
+
+High Level Functionality Overview
+List what features you have implemented and give an overview of user flow
+- add an observation value/type
+- add rules engine
+- add tests 
+- 
+
+Future Works
+- authentication and roles permission 
+- in larger scale app, would break up into smaller microservices to asynchronously deal with new rules
+- notifications for underwriters based on new rules created by science team
+- working dashboard
+
+
 ## Features
 
 - Rule-based vulnerability detection

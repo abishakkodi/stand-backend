@@ -1,6 +1,15 @@
-# Stand Backend
+# Property Risk Assessment Backend
 
-Express backend with Supabase integration for property assessments.
+A backend service for assessing property risks using a configurable rules engine. The service allows underwriters to evaluate properties based on observations and provides a flexible system for applied science teams to manage risk assessment rules.
+
+## Features
+
+- Rule-based vulnerability detection
+- Point-in-time assessment evaluation
+- Mitigation tracking and recommendations
+- Human-readable rule descriptions
+- Flexible rule conditions with multiple operators
+- Test environment for rule validation
 
 ## Getting Started
 
@@ -46,623 +55,296 @@ POSTGRES_PASSWORD=your_postgres_password
 
 ## API Documentation
 
-### Rules
+### Rules Management
 
-#### Create Rule
+Create a new rule:
+```typescript
+const rule = await rulesEngine.createRule({
+  name: "Window Protection Rule",
+  description: "Detects properties with inadequate window protection",
+  functional_rule: {
+    join_operator: "AND",
+    conditions: [
+      {
+        observation_type_id: "window-type-uuid", // UUID from observation_types table
+        observation_value_ids: ["single-pane-uuid"], // UUIDs from observation_values table
+        value: "single_pane",
+        operator: "EQUALS",
+        value_type: "ENUM"
+      },
+      {
+        observation_type_id: "distance-to-coast-uuid", // UUID from observation_types table
+        value: 10,
+        operator: "LESS_THAN",
+        value_type: "NUMBER"
+      }
+    ]
+  }
+});
+```
 
-Creates a new rule for property assessment.
+Update an existing rule:
+```typescript
+const updatedRule = await rulesEngine.updateRule("rule-uuid", {
+  description: "Updated description",
+  functional_rule: {
+    join_operator: "AND",
+    conditions: [/* ... */]
+  }
+});
+```
 
-- **URL**: `/rules`
-- **Method**: `POST`
-- **Request Body**:
-  ```json
-  {
-    "name": "High Risk Property Alert",
-    "description": "Identifies properties that require immediate attention",
-    "is_active": true,
-    "effective_from": "2024-03-21T00:00:00Z",
-    "effective_to": "2025-03-21T00:00:00Z",
-    "user_id": "123e4567-e89b-12d3-a456-426614174000",
-    "functional_rule": {
-      "conditions": [
+Delete a rule:
+```typescript
+await rulesEngine.deleteRule("rule-uuid");
+```
+
+Test a rule:
+```typescript
+const testCases = [{
+  observations: [{
+    observation_type_id: "window-type-uuid",
+    observation_value_id: "single-pane-uuid",
+    value: "single_pane"
+  }]
+}];
+
+const results = await rulesEngine.testRule(rule, testCases);
+```
+
+### Assessment Processing
+
+Process current assessment:
+```typescript
+// Request
+const assessment = {
+  id: "123e4567-e89b-12d3-a456-426614174000",
+  property_id: "987fcdeb-51d3-12d3-a456-426614174000",
+  observations: [
+    {
+      observation_type_id: "550e8400-e29b-41d4-a716-446655440000",
+      observation_value_id: "7c9e6679-7425-40de-944b-e07fc1f90ae7"
+    },
+    {
+      observation_type_id: "662e8400-e29b-41d4-a716-446655440000",
+      value: 5.2 // For a NUMBER type observation (e.g., distance to coast)
+    }
+  ]
+};
+
+const result = await rulesEngine.processAssessment(assessment);
+
+// Response
+{
+  "assessment": {
+    "id": "123e4567-e89b-12d3-a456-426614174000",
+    "property_id": "987fcdeb-51d3-12d3-a456-426614174000",
+    "processed_at": "2024-03-19T08:30:00Z",
+    "total_observations": 2,
+    "rules_evaluated": 15,
+    "summary": {
+      "total_vulnerabilities": 2,
+      "severity_breakdown": {
+        "high": 1,
+        "medium": 1,
+        "low": 0
+      }
+    }
+  },
+  "vulnerabilities": [
+    {
+      "id": "d290f1ee-6c54-4b01-90e6-d701748f0851",
+      "rule_id": "0d47d008-2a47-4f3a-a5a3-7b1c5d98f840",
+      "status": "open",
+      "created_at": "2024-03-19T08:30:00Z",
+      "rule": {
+        "name": "Window Protection Rule",
+        "description": "Single-pane windows within 10 miles of coast require protection",
+        "severity": "high",
+        "triggered_conditions": [
+          {
+            "observation_type": "window_type",
+            "observed_value": "single_pane",
+            "threshold": null
+          },
+          {
+            "observation_type": "distance_to_coast",
+            "observed_value": 5.2,
+            "threshold": "< 10"
+          }
+        ]
+      },
+      "available_mitigations": [
         {
-          "observation_type_id": "550e8400-e29b-41d4-a716-446655440000",
-          "observation_value_ids": ["550e8400-e29b-41d4-a716-446655440001"],
-          "operator": "EQUALS",
-          "value": "Critical",
-          "value_type": "ENUM"
+          "id": "8a7b5c3d-9e0f-4a1b-8c2d-3e4f5a6b7c8d",
+          "type": "window_protection",
+          "name": "Storm Shutters",
+          "description": "Install storm shutters on all windows",
+          "effectiveness": "high"
+        }
+      ]
+    }
+  ]
+}
+```
+
+Process assessment at a specific point in time:
+```
+```
+
+### Vulnerability Management
+
+Get mitigation options for a vulnerability:
+```typescript
+// Request
+GET /api/vulnerabilities/{vulnerability_id}/mitigations
+
+// Response
+{
+  "vulnerability": {
+    "id": "d290f1ee-6c54-4b01-90e6-d701748f0851",
+    "rule": {
+      "name": "Window Protection Rule",
+      "description": "Single-pane windows within 10 miles of coast require protection",
+      "severity": "high"
+    }
+  },
+  "mitigation_options": [
+    {
+      "id": "8a7b5c3d-9e0f-4a1b-8c2d-3e4f5a6b7c8d",
+      "type": {
+        "name": "Window Protection",
+        "description": "Methods to protect windows",
+        "value_type": "enum",
+        "multiple": false
+      },
+      "values": [
+        {
+          "id": "abc123-value1",
+          "description": "Permanent mounted shutters that roll down automatically",
+          "category": "FULL"
         },
         {
-          "observation_type_id": "660e8400-e29b-41d4-a716-446655440000",
-          "operator": "LESS_THAN",
-          "value": 40,
-          "value_type": "NUMBER"
+          "id": "abc123-value2",
+          "description": "Temporary plywood protection for windows",
+          "category": "BRIDGE"
         }
-      ],
-      "join_operator": "OR",
-      "metadata": {
-        "risk_level": "HIGH",
-        "requires_notification": true
-      }
+      ]
     }
-  }
-  ```
-
-- **Success Response**:
-  - **Code**: 201
-  - **Content**:
-    ```json
-    {
-      "message": "Rule created successfully",
-      "rule_id": "uuid-string"
-    }
-    ```
-
-- **Error Responses**:
-  - **Code**: 400
-    - **Content**: `{ "error": "Invalid request body", "details": [...] }`
-  
-  - **Code**: 500
-    - **Content**: `{ "error": "Internal server error", "message": "Failed to create rule" }`
-
-#### Get All Rules
-
-Retrieves all rules ordered by priority.
-
-- **URL**: `/rules`
-- **Method**: `GET`
-- **Success Response**:
-  - **Code**: 200
-  - **Content**:
-    ```json
-    [
-      {
-        "id": "uuid-string",
-        "name": "string",
-        "description": "string",
-        "conditions": [...],
-        "actions": [...],
-        "is_active": boolean,
-        "priority": number,
-        "created_at": "timestamp",
-        "updated_at": "timestamp"
-      }
-    ]
-    ```
-
-#### Get Rule by ID
-
-Retrieves a specific rule by its ID.
-
-- **URL**: `/rules/:id`
-- **Method**: `GET`
-- **URL Parameters**:
-  - `id`: UUID of the rule (required)
-
-- **Success Response**:
-  - **Code**: 200
-  - **Content**: Same as single rule object from Get All Rules
-
-- **Error Responses**:
-  - **Code**: 400
-    - **Content**: `{ "error": "Invalid rule ID format" }`
-  - **Code**: 404
-    - **Content**: `{ "error": "Rule not found" }`
-  - **Code**: 500
-    - **Content**: `{ "error": "Internal server error", "message": "Failed to fetch rule" }`
-
-#### Update Rule
-
-Updates an existing rule.
-
-- **URL**: `/rules/:id`
-- **Method**: `PUT`
-- **URL Parameters**:
-  - `id`: UUID of the rule (required)
-- **Request Body**: Same as Create Rule, all fields optional
-
-- **Success Response**:
-  - **Code**: 200
-  - **Content**:
-    ```json
-    {
-      "message": "Rule updated successfully",
-      "rule": {
-        // Updated rule object
-      }
-    }
-    ```
-
-- **Error Responses**:
-  - **Code**: 400
-    - **Content**: `{ "error": "Invalid rule ID format" }`
-    - **Content**: `{ "error": "Invalid request body", "details": [...] }`
-    - **Content**: `{ "error": "No valid fields to update" }`
-  - **Code**: 404
-    - **Content**: `{ "error": "Rule not found" }`
-  - **Code**: 500
-    - **Content**: `{ "error": "Internal server error", "message": "Failed to update rule" }`
-
-#### Delete Rule
-
-Deletes a rule.
-
-- **URL**: `/rules/:id`
-- **Method**: `DELETE`
-- **URL Parameters**:
-  - `id`: UUID of the rule (required)
-
-- **Success Response**:
-  - **Code**: 200
-  - **Content**:
-    ```json
-    {
-      "message": "Rule deleted successfully",
-      "rule_id": "uuid-string"
-    }
-    ```
-
-- **Error Responses**:
-  - **Code**: 400
-    - **Content**: `{ "error": "Invalid rule ID format" }`
-  - **Code**: 404
-    - **Content**: `{ "error": "Rule not found" }`
-  - **Code**: 500
-    - **Content**: `{ "error": "Internal server error", "message": "Failed to delete rule" }`
-
-### Properties
-
-#### Create Property
-
-Creates a new property record.
-
-- **URL**: `/property`
-- **Method**: `POST`
-- **Request Body**:
-  ```json
-  {
-    "address": "123 Main St",
-    "full_address": "123 Main St, San Francisco, CA 94105",
-    "last_assessed": "2024-03-21T00:00:00Z",
-    "year_built": 1990,
-    "location": {
-      "latitude": 37.7749,
-      "longitude": -122.4194
-    },
-    "underwriter_user_id": "123e4567-e89b-12d3-a456-426614174000",
-    "assessed_value": 1500000,
-    "assessed_value_currency": "USD"
-  }
-  ```
-
-- **Success Response**:
-  - **Code**: 201
-  - **Content**:
-    ```json
-    {
-      "message": "Property created successfully",
-      "property_id": "uuid-string"
-    }
-    ```
-
-- **Error Responses**:
-  - **Code**: 400
-    - **Content**: `{ "error": "Invalid request body", "details": [...] }`
-  
-  - **Code**: 500
-    - **Content**: `{ "error": "Internal server error", "message": "Failed to create property" }`
-
-- **Example Request**:
-  ```bash
-  curl -X POST http://localhost:3000/property \
-    -H "Content-Type: application/json" \
-    -d '{
-      "address": "123 Main St",
-      "full_address": "123 Main St, San Francisco, CA 94105",
-      "full_address": "123 Main St, City, State 12345",
-      "year_built": 1990,
-      "location": {
-        "latitude": 37.7749,
-        "longitude": -122.4194
-      },
-      "assessed_value": 500000,
-      "assessed_value_currency": "USD"
-    }'
-  ```
-
-### Property Assessments
-
-#### Create Property Assessment
-
-Creates a new property assessment with associated observations.
-
-- **URL**: `/property/:id/assessment`
-- **Method**: `POST`
-- **URL Parameters**:
-  - `id`: UUID of the property (required)
-
-- **Request Body**:
-  ```typescript
-  {
-    "assessor_id": string (UUID),
-    "observations": [
-      {
-        "observation_type_id": string (UUID),
-        "observation_value_id": string (UUID)
-      }
-    ],
-    "property_id": string (UUID) // Must match the :id in the URL
-  }
-  ```
-
-- **Success Response**:
-  - **Code**: 201
-  - **Content**:
-    ```json
-    {
-      "message": "Property assessment created successfully",
-      "assessment_id": "uuid-string"
-    }
-    ```
-
-- **Error Responses**:
-  - **Code**: 400
-    - **Content**: `{ "error": "Invalid property ID format" }`
-    - **Content**: `{ "error": "Invalid request body", "details": [...] }`
-    - **Content**: `{ "error": "Property ID in URL does not match the one in request body" }`
-  
-  - **Code**: 500
-    - **Content**: `{ "error": "Internal server error", "message": "Failed to create property assessment" }`
-
-- **Example Request**:
-  ```bash
-  curl -X POST http://localhost:3000/property/123e4567-e89b-12d3-a456-426614174000/assessment \
-    -H "Content-Type: application/json" \
-    -d '{
-      "assessor_id": "123e4567-e89b-12d3-a456-426614174001",
-      "observations": [
-        {
-          "observation_type_id": "123e4567-e89b-12d3-a456-426614174002",
-          "observation_value_id": "123e4567-e89b-12d3-a456-426614174003"
-        }
-      ],
-      "property_id": "123e4567-e89b-12d3-a456-426614174000"
-    }'
-  ```
-
-### Observations
-
-#### Observation Types
-
-##### Create Observation Type
-- **URL**: `/observations/types`
-- **Method**: `POST`
-- **Request Body**:
-  ```typescript
-  {
-    "name": string,
-    "description": string,
-    "value_type": string,      // defaults to 'enum'
-    "multiple": boolean        // defaults to false
-  }
-  ```
-- **Success Response**:
-  - **Code**: 201
-  - **Content**:
-    ```json
-    {
-      "message": "Observation type created successfully",
-      "type_id": "uuid-string"
-    }
-    ```
-- **Error Response**:
-  - **Code**: 400
-    - **Content**: `{ "error": "Invalid request body", "details": [...] }`
-  - **Code**: 500
-    - **Content**: `{ "error": "Internal server error", "message": "Failed to create observation type" }`
-
-##### Get All Observation Types
-- **URL**: `/observations/types`
-- **Method**: `GET`
-- **Success Response**:
-  - **Code**: 200
-  - **Content**:
-    ```json
-    [
-      {
-        "id": "uuid-string",
-        "name": "string",
-        "description": "string",
-        "value_type": "string",
-        "multiple": boolean,
-        "created_at": "timestamp"
-      }
-    ]
-    ```
-
-##### Get Observation Type by ID
-- **URL**: `/observations/types/:id`
-- **Method**: `GET`
-- **URL Parameters**: `id=[uuid]`
-- **Success Response**:
-  - **Code**: 200
-  - **Content**: Same as single type object from Get All Types
-- **Error Response**:
-  - **Code**: 400
-    - **Content**: `{ "error": "Invalid observation type ID format" }`
-  - **Code**: 404
-    - **Content**: `{ "error": "Observation type not found" }`
-
-##### Update Observation Type
-- **URL**: `/observations/types/:id`
-- **Method**: `PUT`
-- **URL Parameters**: `id=[uuid]`
-- **Request Body**: Same as Create Type (all fields optional)
-- **Success Response**:
-  - **Code**: 200
-  - **Content**:
-    ```json
-    {
-      "message": "Observation type updated successfully",
-      "type": {
-        // Updated type object
-      }
-    }
-    ```
-- **Error Response**:
-  - **Code**: 400
-    - **Content**: `{ "error": "Invalid observation type ID format" }`
-    - **Content**: `{ "error": "Invalid request body", "details": [...] }`
-  - **Code**: 404
-    - **Content**: `{ "error": "Observation type not found" }`
-
-##### Delete Observation Type
-- **URL**: `/observations/types/:id`
-- **Method**: `DELETE`
-- **URL Parameters**: `id=[uuid]`
-- **Success Response**:
-  - **Code**: 200
-  - **Content**:
-    ```json
-    {
-      "message": "Observation type deleted successfully",
-      "type_id": "uuid-string"
-    }
-    ```
-- **Error Response**:
-  - **Code**: 400
-    - **Content**: `{ "error": "Invalid observation type ID format" }`
-  - **Code**: 404
-    - **Content**: `{ "error": "Observation type not found" }`
-
-#### Observation Values
-
-##### Create Observation Value
-- **URL**: `/observations/values`
-- **Method**: `POST`
-- **Request Body**:
-  ```typescript
-  {
-    "observation_type_id": string,  // UUID
-    "value": string,
-    "description": string
-  }
-  ```
-- **Success Response**:
-  - **Code**: 201
-  - **Content**:
-    ```json
-    {
-      "message": "Observation value created successfully",
-      "value_id": "uuid-string"
-    }
-    ```
-- **Error Response**:
-  - **Code**: 400
-    - **Content**: `{ "error": "Invalid request body", "details": [...] }`
-  - **Code**: 404
-    - **Content**: `{ "error": "Observation type not found" }`
-  - **Code**: 500
-    - **Content**: `{ "error": "Internal server error", "message": "Failed to create observation value" }`
-
-##### Get Values by Type
-- **URL**: `/observations/types/:typeId/values`
-- **Method**: `GET`
-- **URL Parameters**: `typeId=[uuid]`
-- **Success Response**:
-  - **Code**: 200
-  - **Content**:
-    ```json
-    [
-      {
-        "id": "uuid-string",
-        "observation_type_id": "uuid-string",
-        "value": "string",
-        "description": "string",
-        "created_at": "timestamp"
-      }
-    ]
-    ```
-
-##### Get Value by ID
-- **URL**: `/observations/values/:id`
-- **Method**: `GET`
-- **URL Parameters**: `id=[uuid]`
-- **Success Response**:
-  - **Code**: 200
-  - **Content**: Same as single value object from Get Values by Type
-- **Error Response**:
-  - **Code**: 400
-    - **Content**: `{ "error": "Invalid observation value ID format" }`
-  - **Code**: 404
-    - **Content**: `{ "error": "Observation value not found" }`
-
-##### Update Value
-- **URL**: `/observations/values/:id`
-- **Method**: `PUT`
-- **URL Parameters**: `id=[uuid]`
-- **Request Body**: Same as Create Value (all fields optional)
-- **Success Response**:
-  - **Code**: 200
-  - **Content**:
-    ```json
-    {
-      "message": "Observation value updated successfully",
-      "value": {
-        // Updated value object
-      }
-    }
-    ```
-- **Error Response**:
-  - **Code**: 400
-    - **Content**: `{ "error": "Invalid observation value ID format" }`
-    - **Content**: `{ "error": "Invalid request body", "details": [...] }`
-  - **Code**: 404
-    - **Content**: `{ "error": "Observation value not found" }`
-    - **Content**: `{ "error": "Observation type not found" }`
-
-##### Delete Value
-- **URL**: `/observations/values/:id`
-- **Method**: `DELETE`
-- **URL Parameters**: `id=[uuid]`
-- **Success Response**:
-  - **Code**: 200
-  - **Content**:
-    ```json
-    {
-      "message": "Observation value deleted successfully",
-      "value_id": "uuid-string"
-    }
-    ```
-- **Error Response**:
-  - **Code**: 400
-    - **Content**: `{ "error": "Invalid observation value ID format" }`
-  - **Code**: 404
-    - **Content**: `{ "error": "Observation value not found" }`
-
-### Database Schema
-
-The application uses the following main tables:
-
-- `properties`: Stores property information
-  ```sql
-  create table public.properties (
-    id serial not null,
-    address text not null,
-    full_address text not null,
-    last_assessed timestamp with time zone null,
-    year_built integer null,
-    location jsonb null,
-    underwriter_user_id uuid null,
-    created_at timestamp with time zone not null default now(),
-    updated_at timestamp with time zone not null default now(),
-    assessed_value numeric null,
-    assessed_value_currency public.currency_type null default 'USD'::currency_type,
-    constraint properties_pkey primary key (id),
-    constraint properties_underwriter_user_id_fkey foreign key (underwriter_user_id) references auth.users (id)
-  );
-
-  -- Index for underwriter lookup
-  create index properties_underwriter_user_id_idx 
-    on public.properties using btree (underwriter_user_id) 
-    tablespace pg_default;
-  ```
-
-- `property_assessments`: Stores property assessment records
-  - `id`: UUID (primary key)
-  - `property_id`: UUID (foreign key to properties)
-  - `assessor_id`: UUID
-  - `assessment_date`: timestamp
-  - `status`: enum
-  - `created_at`: timestamp
-  - `updated_at`: timestamp
-
-- `assessment_observations`: Links assessments with observations
-  - `id`: UUID (primary key)
-  - `assessment_id`: UUID (foreign key to property_assessments)
-  - `observation_type_id`: UUID (foreign key to observation_types)
-  - `observation_value_id`: UUID (foreign key to observation_values)
-  - `created_at`: timestamp
-  - `updated_at`: timestamp
-
-- `observation_types`: Defines different types of observations
-  - `id`: UUID (primary key)
-  - `name`: string
-  - `description`: string
-  - `value_type`: string
-  - `multiple`: boolean
-  - `created_at`: timestamp
-
-- `observation_values`: Stores possible values for observation types
-  - `id`: UUID (primary key)
-  - `observation_type_id`: UUID (foreign key to observation_types)
-  - `value`: string
-  - `description`: string
-  - `created_at`: timestamp
-
-- `rules`: Stores rule definitions
-  - `rule_id`: UUID (primary key)
-  - `name`: text
-  - `description`: text
-  - `is_active`: boolean
-  - `effective_from`: timestamp with time zone
-  - `effective_to`: timestamp with time zone (nullable)
-  - `user_id`: UUID (foreign key to auth.users, nullable)
-  - `version`: integer
-  - `functional_rule`: jsonb
-  - `created_at`: timestamp with time zone
-  - `updated_at`: timestamp with time zone
-
-#### Observation Types Table
-```sql
-create table public.observation_types (
-  id uuid not null default gen_random_uuid(),
-  name text not null,
-  description text null,
-  created_at timestamp with time zone not null default now(),
-  value_type text not null default 'enum'::text,
-  multiple boolean not null default false,
-  constraint observation_types_pkey primary key (id)
-);
+  ]
+}
 ```
 
-#### Observation Values Table
-```sql
-create table public.observation_values (
-  id uuid not null default gen_random_uuid(),
-  observation_type_id uuid not null,
-  value text not null,
-  created_at timestamp with time zone not null default now(),
-  description text null,
-  constraint observation_values_pkey primary key (id),
-  constraint observation_values_observation_type_id_value_key unique (observation_type_id, value),
-  constraint observation_values_observation_type_id_fkey foreign key (observation_type_id) references observation_types (id)
-);
+Apply mitigation to vulnerability:
+```typescript
+// Request
+POST /api/vulnerabilities/{vulnerability_id}/mitigations
+{
+  "mitigation_value_id": "abc123-value1",
+  "description": "Installed storm shutters on all windows on March 15, 2024"
+}
+
+// Response
+{
+  "vulnerability": {
+    "id": "d290f1ee-6c54-4b01-90e6-d701748f0851",
+    "rule_id": "0d47d008-2a47-4f3a-a5a3-7b1c5d98f840",
+    "status": "in_review",
+    "mitigation_value_id": "abc123-value1",
+    "mitigation_description": "Installed storm shutters on all windows on March 15, 2024",
+    "updated_at": "2024-03-19T08:30:00Z"
+  },
+  "mitigation": {
+    "id": "abc123-value1",
+    "description": "Permanent mounted shutters that roll down automatically",
+    "category": "FULL"
+  }
+}
 ```
 
-## Development
+This endpoint allows underwriters to:
+1. Apply a selected mitigation to a vulnerability
+2. Provide implementation details in the description
+3. Automatically changes the vulnerability status to "in_review"
+4. Returns both the updated vulnerability and the applied mitigation details
 
-### Available Scripts
+### Mitigation Management
 
-- `npm run dev`: Start development server with hot-reload
-- `npm run build`: Build the application
-- `npm start`: Start production server
-- `npm test`: Run tests
+Create a mitigation type:
+```typescript
+// Request
+POST /api/mitigations/types
+{
+  "name": "Window Protection",
+  "description": "Methods to protect windows from storm damage",
+  "value_type": "enum",
+  "multiple": false
+}
 
-### Type Safety
+// Response
+{
+  "id": "8a7b5c3d-9e0f-4a1b-8c2d-3e4f5a6b7c8d",
+  "name": "Window Protection",
+  "description": "Methods to protect windows from storm damage",
+  "value_type": "enum",
+  "multiple": false,
+  "created_at": "2024-03-19T08:30:00Z"
+}
+```
 
-The application uses:
-- TypeScript for static type checking
-- Zod for runtime request validation
-- PostgreSQL with strong typing
+Add mitigation values to a type:
+```typescript
+// Request
+POST /api/mitigations/values
+{
+  "mitigation_type_id": "8a7b5c3d-9e0f-4a1b-8c2d-3e4f5a6b7c8d",
+  "description": "Permanent mounted shutters that roll down automatically",
+  "category": "FULL"
+}
 
-## Contributing
+// Response
+{
+  "id": "abc123-value1",
+  "mitigation_type_id": "8a7b5c3d-9e0f-4a1b-8c2d-3e4f5a6b7c8d",
+  "description": "Permanent mounted shutters that roll down automatically",
+  "category": "FULL",
+  "created_at": "2024-03-19T08:30:00Z"
+}
+```
 
-1. Create a feature branch
-2. Commit your changes
-3. Push to the branch
-4. Create a Pull Request
+This allows Applied Science teams to:
+1. Create new types of mitigations (e.g., "Window Protection", "Flood Control")
+2. Specify if multiple mitigations can be applied (multiple: true/false)
+3. Add specific mitigation values with their descriptions
+4. Categorize mitigations as either FULL or BRIDGE solutions
 
-## License
+### Assessment Management
 
-This project is licensed under the ISC License.
+Link observation to vulnerability and mitigation:
+```typescript
+// Request
+PATCH /api/assessments/observations/{observation_id}
+{
+  "vulnerability_id": "d290f1ee-6c54-4b01-90e6-d701748f0851",
+  "mitigation_id": "8a7b5c3d-9e0f-4a1b-8c2d-3e4f5a6b7c8d"
+}
+
+// Response
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "assessment_id": "123e4567-e89b-12d3-a456-426614174000",
+  "observation_type_id": "window-type-uuid",
+  "observation_value_id": "single-pane-uuid",
+  "custom_value": null,
+  "vulnerability_id": "d290f1ee-6c54-4b01-90e6-d701748f0851",
+  "mitigation_id": "8a7b5c3d-9e0f-4a1b-8c2d-3e4f5a6b7c8d",
+  "created_at": "2024-03-19T08:30:00Z",
+  "updated_at": "2024-03-19T08:35:00Z"
+}
+```
+
+This endpoint allows users to:
+1. Link an observation to the vulnerability it triggered
+2. Associate the mitigation that was applied to address the vulnerability
+3. Track which observations led to vulnerabilities and how they were mitigated
+4. Maintain a complete audit trail of property assessments and mitigations

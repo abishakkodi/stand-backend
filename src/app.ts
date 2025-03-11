@@ -2,7 +2,9 @@ import express from 'express';
 import cors from 'cors';
 import propertyRouter from './routes/property.js';
 import rulesRouter from './routes/rules.js';
-import observationsRouter from './routes/observations.js';
+import mitigationsRouter from './routes/mitigations.js';
+import vulnerabilitiesRouter from './routes/vulnerabilities.js';
+import propertyAssessmentsRouter from './routes/property-assessments.js';
 
 const app = express();
 
@@ -11,9 +13,11 @@ app.use(cors());
 app.use(express.json());
 
 // Routes
-app.use('/property', propertyRouter);
+app.use('/properties', propertyRouter);
 app.use('/rules', rulesRouter);
-app.use('/observations', observationsRouter);
+app.use('/mitigations', mitigationsRouter);
+app.use('/vulnerabilities', vulnerabilitiesRouter);
+app.use('/property-assessments', propertyAssessmentsRouter);
 
 // Error handling
 app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {

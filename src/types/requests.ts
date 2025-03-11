@@ -37,7 +37,7 @@ export const ComparisonOperator = z.enum([
   'LESS_THAN_OR_EQUALS',
   'IN',
   'NOT_IN',
-  'CONTAINS',  // For array types
+  'CONTAINS',
   'NOT_CONTAINS'
 ]);
 
@@ -54,10 +54,10 @@ export const ValueType = z.enum([
 export const LogicalJoinOperator = z.enum([
   'AND',
   'OR'
-]).nullable();
+]);
 
-// Schema for a single condition
-export const RuleCondition = z.object({
+// Schema for a leaf condition (actual comparison)
+export const LeafCondition = z.object({
   observation_type_id: z.string().uuid(),
   observation_value_ids: z.array(z.string().uuid()).optional(),
   operator: ComparisonOperator,
@@ -72,15 +72,31 @@ export const RuleCondition = z.object({
   value_type: ValueType
 });
 
+// Define types for our schemas
+export type TLeafCondition = z.infer<typeof LeafCondition>;
+export type TConditionGroup = {
+  join_operator: z.infer<typeof LogicalJoinOperator>;
+  conditions: Array<TLeafCondition | TConditionGroup>;
+};
+
+// Schema for a condition group (recursive structure)
+export const ConditionGroup: z.ZodType<TConditionGroup> = z.object({
+  join_operator: LogicalJoinOperator,
+  conditions: z.lazy(() => z.array(
+    z.union([LeafCondition, ConditionGroup])
+  ))
+});
+
 // Schema for the functional rule
 export const FunctionalRuleSchema = z.object({
-  conditions: z.array(RuleCondition).default([]),
-  join_operator: LogicalJoinOperator.default(null),
+  root: ConditionGroup,
   metadata: z.record(z.string(), z.any()).optional()
-}).default(() => ({
-  conditions: [],
-  join_operator: null
-}));
+}).default({
+  root: {
+    join_operator: 'AND' as const,
+    conditions: []
+  }
+});
 
 export const CreateRuleSchema = z.object({
   name: z.string().min(1),
@@ -124,4 +140,66 @@ export const UpdateObservationValueSchema = CreateObservationValueSchema.partial
 export type CreateObservationTypeRequest = z.infer<typeof CreateObservationTypeSchema>;
 export type UpdateObservationTypeRequest = z.infer<typeof UpdateObservationTypeSchema>;
 export type CreateObservationValueRequest = z.infer<typeof CreateObservationValueSchema>;
-export type UpdateObservationValueRequest = z.infer<typeof UpdateObservationValueSchema>; 
+export type UpdateObservationValueRequest = z.infer<typeof UpdateObservationValueSchema>;
+
+// Enum for mitigation categories
+export const MitigationCategory = z.enum([
+  'FULL',
+  // Add other categories as needed
+]);
+
+// Enum for vulnerability status
+export const VulnerabilityStatus = z.enum([
+  'open',
+  'closed',
+  // Add other statuses as needed
+]);
+
+export const CreateMitigationTypeSchema = z.object({
+  name: z.string().min(1),
+  description: z.string().nullable().optional(),
+  value_type: z.string().default('enum'),
+  multiple: z.boolean().default(false)
+});
+
+export const UpdateMitigationTypeSchema = CreateMitigationTypeSchema.partial().extend({
+  id: z.string().uuid()
+});
+
+export const CreateMitigationValueSchema = z.object({
+  mitigation_type_id: z.string().uuid(),
+  value: z.string().min(1),
+  description: z.string().nullable().optional(),
+  category: MitigationCategory.default('FULL')
+});
+
+export const UpdateMitigationValueSchema = CreateMitigationValueSchema.partial().extend({
+  id: z.string().uuid()
+});
+
+export const CreateVulnerabilitySchema = z.object({
+  rule_id: z.string().uuid(),
+  assessment_id: z.string().uuid(),
+  assessment_observation_id: z.string().uuid().nullable().optional(),
+  property_id: z.number().int().positive(),
+  status: VulnerabilityStatus.default('open'),
+  mitigation_description: z.string().nullable().optional(),
+  mitigation_id: z.string().nullable().optional(),
+  mitigation_type_id: z.string().uuid().nullable().optional()
+});
+
+export const UpdateVulnerabilitySchema = CreateVulnerabilitySchema.partial().extend({
+  id: z.string().uuid()
+});
+
+export type CreateMitigationTypeRequest = z.infer<typeof CreateMitigationTypeSchema>;
+export type UpdateMitigationTypeRequest = z.infer<typeof UpdateMitigationTypeSchema>;
+export type CreateMitigationValueRequest = z.infer<typeof CreateMitigationValueSchema>;
+export type UpdateMitigationValueRequest = z.infer<typeof UpdateMitigationValueSchema>;
+export type CreateVulnerabilityRequest = z.infer<typeof CreateVulnerabilitySchema>;
+export type UpdateVulnerabilityRequest = z.infer<typeof UpdateVulnerabilitySchema>;
+
+export const UpdateAssessmentObservationSchema = z.object({
+  vulnerability_id: z.string().uuid(),
+  mitigation_id: z.string().uuid()
+}); 
